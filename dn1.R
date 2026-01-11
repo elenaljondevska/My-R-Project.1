@@ -32,9 +32,12 @@ p2<-ggplot(freq_year, aes(x = EventYear, y = cum_rel_freq)) +
   geom_point() +
   labs(y = "kumulativna relativna frekvenca(%)", x = "leto meritve") +
   scale_x_continuous(breaks = freq_year$EventYear) +
-  scale_y_continuous(breaks = freq_year$cum_rel_freq)
+  scale_y_continuous(breaks = freq_year$cum_rel_freq,
+                     labels=function(x) sprintf("%.2f",x)) +
+  theme(axis.text.x=element_text(angle=45,hjust=1))
 range(gwmp$EventYear)
-p1+p2 
+#p1+p2 
+p2
 
 
 # temp(c°)
@@ -77,13 +80,23 @@ sd(visit2$AirTemp)
 ggplot(gwmp %>% filter(VisitNumber %in% c(1,2)),
        aes(x = factor(VisitNumber), y = AirTemp)) +
   geom_boxplot() +
-  labs(x = "Obisk", y = "Temperatura (°C)")
+  labs(x = "Obisk", y = "Temperatura (°C)") +
+  scale_y_continuous(limits = c(0, 40), breaks = seq(0, 40, by = 5))
 # t-test
 #H0: Povprečni temperaturi ob prvem in drugem obisku sta enaki
 #H1: Povprečni temperaturi se razlikujeta
 
-t.test(visit1$AirTemp, visit2$AirTemp, paired = F)
+#t.test(visit1$AirTemp, visit2$AirTemp, paired = F)
+# 1. Priprava podatkov: povprečna temperatura po letih za 1. in 2. obisk
+library(dplyr)
+test_data <- gwmp %>%
+  filter(VisitNumber %in% c(1, 2)) %>%
+  group_by(EventYear, VisitNumber) %>%
+  summarise(avg_temp = mean(AirTemp, na.rm = TRUE)) %>%
+  tidyr::pivot_wider(names_from = VisitNumber, values_from = avg_temp, names_prefix = "visit")
 
+# 2. Izvedba odvisnega t-testa (paired = TRUE)
+t.test(test_data$visit1, test_data$visit2, paired = TRUE)
 
 #p-vrednost 2.2e-16 < 0.05 zavrnemo H0
 #Zaključek: Povprečni temperaturi ob prvem in drugem obisku se razlikujeta.
@@ -92,7 +105,11 @@ t.test(visit1$AirTemp, visit2$AirTemp, paired = F)
 
 ggplot(gwmp, aes(x = EventYear, y = AirTemp)) +
   geom_point() +
-  geom_smooth(method = "loess")
+  geom_smooth(method = "loess") +
+  labs(x="Leto", y="Temperatura zraka (°C)") +
+  scale_y_continuous(limits=c(0,40),breaks= seq(0,40, by=5)) +
+  scale_x_continuous(breaks= seq(min(gwmp$EventYear), max(gwmp$EventYear), by=1)) +
+  theme_minimal()
 cor.test(gwmp$EventYear, gwmp$AirTemp, method = "spearman")
 # S Spearmanovim koeficientom korelacije smo preverjali povezanost med letom meritve in temperaturo zraka. 
 #Izračunani koeficient znaša ρ = 0,34, kar kaže na zmerno pozitivno povezanost med spremenljivkama.
